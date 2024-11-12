@@ -2,13 +2,15 @@ import 'package:flutter/material.dart';
 import '../../constants.dart'; // Ensure your primary color is defined here.
 
 class CustomBottomNavBar extends StatelessWidget {
-  final int selectedIndex;
-  final ValueChanged<int> onItemTapped;
+  final String selectedId;
+  final ValueChanged<String> onItemTapped;
+  final int accessLevel;
 
   const CustomBottomNavBar({
     Key? key,
-    required this.selectedIndex,
+    required this.selectedId,
     required this.onItemTapped,
+    required this.accessLevel,
   }) : super(key: key);
 
   @override
@@ -25,7 +27,7 @@ class CustomBottomNavBar extends StatelessWidget {
           BoxShadow(
             color: Colors.black.withOpacity(0.08),
             blurRadius: 20,
-            offset: const Offset(0, -8), // Softer shadow above.
+            offset: const Offset(0, -8),
           ),
         ],
       ),
@@ -33,15 +35,9 @@ class CustomBottomNavBar extends StatelessWidget {
         type: BottomNavigationBarType.fixed,
         backgroundColor: Colors.transparent,
         elevation: 0,
-        items: [
-          _buildNavItem(icon: Icons.dashboard, label: "Dashboard", index: 0),
-          _buildNavItem(icon: Icons.people, label: "Users", index: 1),
-          _buildNavItem(icon: Icons.list_alt, label: "Requests", index: 2),
-          _buildNavItem(icon: Icons.cake, label: "Birthdays", index: 3),
-          _buildNavItem(icon: Icons.settings, label: "Settings", index: 4),
-        ],
-        currentIndex: selectedIndex,
-        onTap: onItemTapped,
+        items: _getNavItems(),
+        currentIndex: _getSelectedIndex(),
+        onTap: (index) => onItemTapped(_getNavItems()[index].label!), // Use label as ID
         showSelectedLabels: true,
         showUnselectedLabels: false,
         selectedLabelStyle: const TextStyle(
@@ -53,12 +49,38 @@ class CustomBottomNavBar extends StatelessWidget {
     );
   }
 
+  int _getSelectedIndex() {
+    for (int i = 0; i < _getNavItems().length; i++) {
+      if (_getNavItems()[i].label == selectedId) {
+        return i;
+      }
+    }
+    return 0; // Default to the first item if ID not found
+  }
+
+  List<BottomNavigationBarItem> _getNavItems() {
+    List<BottomNavigationBarItem> items = [];
+
+    if (accessLevel >= 1) {
+      items.add(_buildNavItem(icon: Icons.dashboard, label: "Dashboard"));
+    }
+    if (accessLevel == 2) {
+      items.add(_buildNavItem(icon: Icons.people, label: "Users"));
+      items.add(_buildNavItem(icon: Icons.list_alt, label: "Requests"));
+      items.add(_buildNavItem(icon: Icons.cake, label: "Birthdays"));
+    }
+    if (accessLevel >= 1) {
+      items.add(_buildNavItem(icon: Icons.settings, label: "Settings"));
+    }
+
+    return items;
+  }
+
   BottomNavigationBarItem _buildNavItem({
     required IconData icon,
     required String label,
-    required int index,
   }) {
-    bool isSelected = selectedIndex == index;
+    bool isSelected = selectedId == label;
 
     return BottomNavigationBarItem(
       icon: AnimatedContainer(
@@ -76,7 +98,7 @@ class CustomBottomNavBar extends StatelessWidget {
               blurRadius: 12,
               spreadRadius: 3,
               offset: const Offset(0, 4),
-            )
+            ),
           ]
               : [],
         ),

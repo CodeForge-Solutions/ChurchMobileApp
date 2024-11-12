@@ -32,7 +32,7 @@ const int kButtonDisableDuration = 2; // Duration in seconds to disable button
 const BorderRadius borderRadius = BorderRadius.all(Radius.circular(8.0));
 
 // API Configuration
-const String baseUrl = 'https://localhost:5064/api/';
+const String baseUrl = 'http://192.168.15.149:5047/api/';
 
 // Text Styles
 const TextStyle signUpTitleStyle = TextStyle(

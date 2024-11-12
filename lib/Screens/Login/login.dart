@@ -1,13 +1,14 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:fluttertoast/fluttertoast.dart';
-import '../../Controller/login_controller.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../../Models/clsLogin.dart';
 import '../../constants.dart';
+import '../../shared_preference.dart';
 import '../Components/already_have_an_account_acheck.dart';
 import '../Dashboard/dashboard.dart';
-import '../Signup/signup.dart';
+import '../Signup/singup.dart';
 import '../components/background.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -19,7 +20,6 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final LoginController _loginController = LoginController();
   String? _phoneNumber;
   String? _password;
 
@@ -32,25 +32,57 @@ class _LoginScreenState extends State<LoginScreen> {
         password: _password!,
       );
 
-      if(user.phoneNumber == '1234567890' && user.password == 'test@123'){
+      // Call the API for login
+      final bool success = await login(user);
+
+      if (success) {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const DashboardScreen()),
         );
       }
+    }
+  }
 
-      // bool success = await _loginController.login(context, user);
-      //
-      // if (success) {
-      //   Navigator.pushReplacement(
-      //     context,
-      //     MaterialPageRoute(builder: (context) => const DashboardScreen()),
-      //   );
-      // } else {
-      //   showToast(context, "Invalid credentials. Please try again."); // Use the showToast function from constants
-      // }
-    } else {
-      showToast(context, "Please fill in all the fields."); // Use the showToast function from constants
+  Future<bool> login(ClsLogin user) async {
+    const String apiUrl = '${baseUrl}auth/login';
+
+    try {
+      final response = await http.post(
+        Uri.parse(apiUrl),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'phoneNumber': user.phoneNumber,
+          'password': user.password,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+        final responseBody = responseData["data"];
+        final userDetails = responseBody["user"];
+
+        await SharedPrefs.clear();
+
+        await SharedPrefs.setString(SharedPrefs.name,userDetails["name"]);
+        await SharedPrefs.setString(SharedPrefs.phoneNumber, userDetails["phoneNumber"]);
+        await SharedPrefs.setString(SharedPrefs.userPass, userDetails["password"]);
+        await SharedPrefs.setInt(SharedPrefs.userId, userDetails["mstUserId"]);
+        await SharedPrefs.setString(SharedPrefs.token, responseBody["token"]);
+        await SharedPrefs.setInt(SharedPrefs.userAccessLevel, userDetails["userAccessLevel"]);
+
+        return true;
+      } else {
+        // Handle login failure
+        final errorData = jsonDecode(response.body);
+        showToast(context, errorData['message']);
+        return false;
+      }
+    } catch (e) {
+      showToast(context, "An error occurred. Please try again.");
+      return false;
     }
   }
 

@@ -1,9 +1,10 @@
+import 'package:church_mobile_app/shared_preference.dart';
 import 'package:flutter/material.dart';
-
-import 'Screens/Login/login.dart';
 import 'Screens/SplashScreen/splashScreen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await SharedPrefs.init();
   runApp(const MyApp());
 }
 

@@ -1,5 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
-import '../../constants.dart'; // Import your constants file
+import '../../constants.dart';
+import 'package:http/http.dart' as http;
+
+import '../../shared_preference.dart';
 
 class ChangePasswordPage extends StatefulWidget {
   const ChangePasswordPage({Key? key}) : super(key: key);
@@ -22,11 +27,44 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
     super.dispose();
   }
 
-  void _changePassword() {
+  Future<void> _changePassword() async {
+    final int? userId = SharedPrefs.getInt(SharedPrefs.userId);
+    final String? token = SharedPrefs.getString(SharedPrefs.token);
+
     if (_formKey.currentState!.validate()) {
-      showToast(context, 'Password changed successfully!');
+      final url = Uri.parse('${baseUrl}user/updatePassword');
+      final response = await http.put(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({
+          'userId': userId,
+          'oldPassword': _oldPasswordController.text,
+          'newPassword': _newPasswordController.text,
+        }),
+      );
+
+      final responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        if (responseData['isSuccess']) {
+          showToast(context, responseData['message']);
+
+          // Redirect user to the ChangePasswordPage
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const ChangePasswordPage()),
+          );
+        } else {
+          showToast(context, responseData['message']);
+        }
+      } else {
+        showToast(context, 'Failed to change password. Please try again.');
+      }
     }
   }
+
 
   @override
   Widget build(BuildContext context) {

@@ -1,6 +1,10 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart'; // For date formatting
+import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
+import '../../Models/clsBirthdayList.dart';
 import '../../constants.dart';
+import '../../shared_preference.dart';
 import 'sendWishes.dart';
 
 class BirthdayListScreen extends StatefulWidget {
@@ -11,17 +15,56 @@ class BirthdayListScreen extends StatefulWidget {
 }
 
 class _BirthdayListScreenState extends State<BirthdayListScreen> {
-  // List of users with their birthdays
-  final List<ApplicationUser> users = [
-    ApplicationUser(id: '1', name: 'Alice', birthday: DateTime.now(), phoneNumber: '123-456-7890'),
-    ApplicationUser(id: '2', name: 'Bob', birthday: DateTime.now().subtract(const Duration(days: 1)), phoneNumber: '987-654-3210'),
-    ApplicationUser(id: '3', name: 'Charlie', birthday: DateTime.now().add(const Duration(days: 1)), phoneNumber: '555-555-5555'),
-    ApplicationUser(id: '4', name: 'Alice1', birthday: DateTime.now(), phoneNumber: '123-456-7890'),
-    ApplicationUser(id: '5', name: 'Bob2', birthday: DateTime.now().subtract(const Duration(days: 1)), phoneNumber: '987-654-3210'),
-    ApplicationUser(id: '6', name: 'Charlie2', birthday: DateTime.now().add(const Duration(days: 1)), phoneNumber: '555-555-5555'),
-  ];
-
+  List<clsBirthdayList> users = [];
   String _selectedCategory = 'Today'; // Default selected category
+
+  @override
+  void initState() {
+    super.initState();
+    fetchBirthdays();
+  }
+
+  Future<void> fetchBirthdays() async {
+    const url = '${baseUrl}user/getBirthdayForDays';
+    final String? token = SharedPrefs.getString(SharedPrefs.token);
+
+    try {
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final jsonResponse = json.decode(response.body);
+
+        if (jsonResponse['isSuccess']) {
+          final List<clsBirthdayList> loadedUsers = (jsonResponse['data'] as List).map((data) {
+            return clsBirthdayList(
+              id: data['userId'],
+              name: data['userName'],
+              birthday: DateFormat("dd-MM-yyyy").parse(data['dateOfBirth']),
+              phoneNumber: data['phoneNumber'] ?? '',
+            );
+          }).toList();
+
+          setState(() {
+            users = loadedUsers;
+          });
+        } else {
+          showToast(context, jsonResponse['message']);
+        }
+      } else {
+        showToast(context, 'Failed to load data');
+      }
+    } catch (e) {
+      print('Error: $e');
+      showToast(context, 'An error occurred while loading data.');
+    }
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -86,7 +129,7 @@ class _BirthdayListScreenState extends State<BirthdayListScreen> {
     );
   }
 
-  List<ApplicationUser> _getFilteredBirthdays() {
+  List<clsBirthdayList> _getFilteredBirthdays() {
     final today = DateTime.now();
     return users.where((user) {
       switch (_selectedCategory) {
@@ -109,22 +152,8 @@ class _BirthdayListScreenState extends State<BirthdayListScreen> {
   }
 }
 
-class ApplicationUser {
-  final String id;
-  final String name;
-  final DateTime birthday;
-  final String phoneNumber;
-
-  ApplicationUser({
-    required this.id,
-    required this.name,
-    required this.birthday,
-    required this.phoneNumber,
-  });
-}
-
 class BirthdayCard extends StatelessWidget {
-  final ApplicationUser user;
+  final clsBirthdayList user;
 
   const BirthdayCard({Key? key, required this.user}) : super(key: key);
 

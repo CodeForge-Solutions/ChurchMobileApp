@@ -1,20 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import '../../Models/clsActiveUsers.dart';
 import '../../constants.dart';
-import '../BirthdayList/sendWishes.dart';
+import '../../shared_preference.dart';
 import 'userDetail.dart';
-
-/// Active User Model
-class ActiveUser {
-  final String id;
-  final String name;
-  final String phoneNumber;
-
-  ActiveUser({
-    required this.id,
-    required this.name,
-    required this.phoneNumber,
-  });
-}
+import 'package:http/http.dart' as http;
 
 class ActiveUsersListScreen extends StatefulWidget {
   const ActiveUsersListScreen({Key? key}) : super(key: key);
@@ -24,19 +15,54 @@ class ActiveUsersListScreen extends StatefulWidget {
 }
 
 class _ActiveUsersListScreenState extends State<ActiveUsersListScreen> {
-  final List<ActiveUser> activeUsers = [
-    ActiveUser(id: '1', name: 'Alice', phoneNumber: '123-456-7890'),
-    ActiveUser(id: '2', name: 'Bob', phoneNumber: '987-654-3210'),
-    ActiveUser(id: '3', name: 'Charlie', phoneNumber: '555-555-5556'),
-    ActiveUser(id: '4', name: 'Diana', phoneNumber: '111-222-3334'),
-    ActiveUser(id: '5', name: 'Eve', phoneNumber: '666-777-8885'),
-    ActiveUser(id: '6', name: 'Frank', phoneNumber: '666-777-8886'),
-    ActiveUser(id: '7', name: 'Grace', phoneNumber: '666-777-8887'),
-    ActiveUser(id: '8', name: 'Heidi', phoneNumber: '666-777-8888'),
-    ActiveUser(id: '9', name: 'Ivan', phoneNumber: '666-777-8889'),
-    ActiveUser(id: '10', name: 'Judy', phoneNumber: '666-777-8890'),
-    ActiveUser(id: '11', name: 'Karl', phoneNumber: '666-777-8891'),
-  ];
+  List<clsActiveUsers> activeUsers = [];
+
+  @override
+  void initState() {
+    super.initState();
+    fetchActiveUsers();
+  }
+
+  Future<void> fetchActiveUsers() async {
+    final int? sessionEuid = SharedPrefs.getInt(SharedPrefs.userId);
+    final String apiUrl = '${baseUrl}user/getActiveUsersList?iUserId=$sessionEuid';
+    final String? token = SharedPrefs.getString(SharedPrefs.token);
+
+    try {
+      final response = await http.get(
+        Uri.parse(apiUrl),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        if (jsonResponse['isSuccess'] == true) {
+          var bodyData = jsonResponse['data'];
+          if (bodyData != "") {
+            final List<dynamic> data = bodyData;
+            setState(() {
+              activeUsers = data.map((json) => clsActiveUsers.fromJson(json)).toList();
+            });
+          } else {
+            setState(() {
+              activeUsers = [];
+            });
+          }
+        } else {
+          showToast(context, jsonResponse['message']);
+        }
+      } else {
+        showToast(context, jsonResponse['message']);
+      }
+    } catch (error) {
+      showToast(context, 'Something went wrong.');
+    }
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -52,19 +78,22 @@ class _ActiveUsersListScreenState extends State<ActiveUsersListScreen> {
           ),
         ),
       ),
-      body: activeUsers.isEmpty
-          ? const Center(child: Text("No active users available."))
-          : ListView.builder(
-        itemCount: activeUsers.length,
-        itemBuilder: (context, index) {
-          final user = activeUsers[index];
-          return _buildUserCard(user);
-        },
+      body: RefreshIndicator(
+        onRefresh: fetchActiveUsers, // Call the fetch function on refresh
+        child: activeUsers.isEmpty
+            ? const Center(child: Text("No active users available."))
+            : ListView.builder(
+          itemCount: activeUsers.length,
+          itemBuilder: (context, index) {
+            final user = activeUsers[index];
+            return _buildUserCard(user);
+          },
+        ),
       ),
     );
   }
 
-  Widget _buildUserCard(ActiveUser user) {
+  Widget _buildUserCard(clsActiveUsers user) {
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -75,9 +104,11 @@ class _ActiveUsersListScreenState extends State<ActiveUsersListScreen> {
         );
       },
       child: Card(
-        margin: const EdgeInsets.all(kCardMargin), // Ensure kCardMargin is defined in constants
+        margin: const EdgeInsets.all(kCardMargin),
+        // Ensure kCardMargin is defined in constants
         child: Padding(
-          padding: const EdgeInsets.all(kCardPadding), // Ensure kCardPadding is defined in constants
+          padding: const EdgeInsets.all(kCardPadding),
+          // Ensure kCardPadding is defined in constants
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -88,11 +119,13 @@ class _ActiveUsersListScreenState extends State<ActiveUsersListScreen> {
                     Text(
                       user.name,
                       style: const TextStyle(
-                        fontSize: kUserNameFontSize, // Ensure kUserNameFontSize is defined in constants
+                        fontSize: kUserNameFontSize,
+                        // Ensure kUserNameFontSize is defined in constants
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(height: kSpacing), // Ensure kSpacing is defined in constants
+                    const SizedBox(height: kSpacing),
+                    // Ensure kSpacing is defined in constants
                     Text('Phone: ${user.phoneNumber}'),
                   ],
                 ),
@@ -110,13 +143,14 @@ class _ActiveUsersListScreenState extends State<ActiveUsersListScreen> {
     );
   }
 
-  void _confirmDeletion(String userId) {
+  void _confirmDeletion(int userId) {
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
           title: const Text("Confirm Deletion"),
-          content: const Text("Are you sure you want to deactivate this account?"),
+          content: const Text(
+              "Are you sure you want to deactivate this account?"),
           actions: [
             TextButton(
               onPressed: () {
@@ -127,8 +161,7 @@ class _ActiveUsersListScreenState extends State<ActiveUsersListScreen> {
             TextButton(
               onPressed: () {
                 _deleteUser(userId);
-                Navigator.of(context).pop();
-                showToast(context,"User has been deactivated."); // Call the toast function here
+                Navigator.of(context).pop(); // Call the toast function here
               },
               child: const Text("Delete"),
             ),
@@ -138,9 +171,31 @@ class _ActiveUsersListScreenState extends State<ActiveUsersListScreen> {
     );
   }
 
-  void _deleteUser(String userId) {
-    setState(() {
-      activeUsers.removeWhere((user) => user.id == userId);
-    });
+  Future<void> _deleteUser(int userId) async {
+    final String? token = SharedPrefs.getString(SharedPrefs.token);
+
+    try {
+      final response = await http.delete(
+        Uri.parse('${baseUrl}user/deleteUserById?userId=$userId'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      final Map<String, dynamic> jsonResponse = jsonDecode(response.body);
+
+      if (jsonResponse['isSuccess'] == true) {
+        setState(() {
+          fetchActiveUsers(); // Refresh the list of active users after deletion
+        });
+        showToast(context, jsonResponse['message']);
+      } else {
+        showToast(context, jsonResponse['message']);
+      }
+    } catch (error) {
+      showToast(context, 'Something went wrong.');
+    }
   }
+
 }

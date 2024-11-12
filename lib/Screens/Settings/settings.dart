@@ -1,6 +1,7 @@
 import 'package:church_mobile_app/Screens/Settings/profile.dart';
 import 'package:flutter/material.dart';
 import '../../constants.dart';
+import '../../shared_preference.dart';
 import '../Login/login.dart';
 import 'changePassword.dart';
 import 'deleteAccount.dart';
@@ -97,7 +98,8 @@ class SettingsPage extends StatelessWidget {
               child: const Text("Cancel"),
             ),
             TextButton(
-              onPressed: () {
+              onPressed: () async {
+                await SharedPrefs.clear();
                 _logoutAndRedirect(context);
               },
               child: const Text("Logout", style: TextStyle(color: Colors.red)),

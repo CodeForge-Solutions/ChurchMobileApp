@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; // Import for clipboard
-import 'package:fluttertoast/fluttertoast.dart';
+import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:intl/intl.dart';
+import '../../Models/clsBirthdayList.dart';
 import '../../constants.dart';
-import 'birthdayList.dart';
 
 class SendWishesScreen extends StatelessWidget {
-  final ApplicationUser user;
+  final clsBirthdayList user;
 
   const SendWishesScreen({Key? key, required this.user}) : super(key: key);
 

@@ -1,90 +1,96 @@
+import 'dart:convert';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
-
+import 'package:url_launcher/url_launcher.dart';
+import '../../Models/clsMstUser.dart';
 import '../../constants.dart';
+import 'package:http/http.dart' as http;
 
-class ActiveUser {
-  final String id;
-  final String name;
-  final String phoneNumber;
-  final String email;
-  final DateTime dateOfBirth;
-  final String password;
-  final String? address; // Optional field
-  final String? country; // Optional field
-  final String? city; // Optional field
-  final int? postalCode; // Optional field
-  final String? occupation; // Optional field
+import '../../shared_preference.dart';
 
-  ActiveUser({
-    required this.id,
-    required this.name,
-    required this.phoneNumber,
-    required this.email,
-    required this.dateOfBirth,
-    required this.password,
-    this.address,
-    this.country,
-    this.city,
-    this.postalCode,
-    this.occupation,
-  });
-}
-
-class UserDetailScreen extends StatelessWidget {
-  final String userId; // Only userId passed
+class UserDetailScreen extends StatefulWidget {
+  final int userId;
 
   const UserDetailScreen({Key? key, required this.userId}) : super(key: key);
 
-  // Mock Data (Simulating a database or API call)
-  ActiveUser? getUserById(String id) {
-    final users = [
-      ActiveUser(
-        id: '1',
-        name: 'Alice',
-        phoneNumber: '123-456-7890',
-        email: 'alice@example.com',
-        dateOfBirth: DateTime(1995, 4, 10),
-        password: 'password123',
-        address: '123 Main St', // Mock address
-        country: 'USA', // Mock country
-        city: 'New York', // Mock city
-        postalCode: 10001, // Mock postal code
-        occupation: 'Software Developer', // Mock occupation
-      ),
-      ActiveUser(
-        id: '2',
-        name: 'Bob',
-        phoneNumber: '098-765-4321',
-        email: 'bob@example.com',
-        dateOfBirth: DateTime(1988, 8, 15),
-        password: 'password456',
-        address: '456 Elm St',
-        country: 'Canada',
-        city: 'Toronto',
-        postalCode: 12345,
-        occupation: 'Designer',
-      ),
-    ];
+  @override
+  _UserDetailScreenState createState() => _UserDetailScreenState();
+}
 
-    return users.firstWhere(
-          (user) => user.id == id,
-      orElse: () => ActiveUser(
-        id: '0',
-        name: 'Unknown',
-        phoneNumber: 'N/A',
-        email: 'N/A',
-        dateOfBirth: DateTime.now(), // You can set a default date if necessary
-        password: 'N/A',
-      ),
-    );
+class _UserDetailScreenState extends State<UserDetailScreen> {
+  clsMstUser? user;
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    fetchUserData();
+  }
+
+  Future<void> fetchUserData() async {
+    final token = SharedPrefs.getString(SharedPrefs.token);
+    final url = Uri.parse('${baseUrl}user/getUserById?userId=${widget.userId}');
+
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+
+        if (responseData['isSuccess'] == true) {
+          setState(() {
+            user = clsMstUser.fromJson(responseData['data']);
+            isLoading = false;
+          });
+        } else {
+          setState(() {
+            isLoading = false;
+          });
+          showToast(context, responseData['message']);
+        }
+      } else {
+        setState(() {
+          isLoading = false;
+        });
+        showToast(context, 'Failed to load');
+      }
+    } catch (error) {
+      setState(() {
+        isLoading = false;
+      });
+      showToast(context, 'An error occurred');
+    }
+  }
+
+  Future<void> _makePhoneCall(String phoneNumber) async {
+    final Uri url = Uri(scheme: 'tel', path: phoneNumber);
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url);
+    } else {
+      print("Could not launch $url");
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final user = getUserById(userId); // Fetch user by id
+    if (isLoading) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text("User Details"),
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
 
-    if (user?.id == '0') {
+    if (user == null) {
       return Scaffold(
         appBar: AppBar(
           title: const Text("User Details"),
@@ -105,23 +111,20 @@ class UserDetailScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildDetailItem('Name', user!.name),
-            _buildDetailItem('Phone', user.phoneNumber),
-            _buildDetailItem('Email', user.email),
-            _buildDetailItem(
-              'Date of Birth',
-              DateFormat('yyyy-MM-dd').format(user.dateOfBirth),
-            ),
-            _buildDetailItem('Password', user.password), // Display password
-            _buildDetailItem('Address', user.address ?? 'N/A'), // Display address
-            _buildDetailItem('Country', user.country ?? 'N/A'), // Display country
-            _buildDetailItem('City', user.city ?? 'N/A'), // Display city
-            _buildDetailItem('Postal Code', user.postalCode?.toString() ?? 'N/A'), // Display postal code
-            _buildDetailItem('Occupation', user.occupation ?? 'N/A'), // Display occupation
-
+            _buildDetailItem('Phone', user!.phoneNumber),
+            _buildDetailItem('Email', user!.email),
+            _buildDetailItem('Date of Birth',user!.dateOfBirth),
+            _buildDetailItem('Password', user!.password),
+            _buildDetailItem('Address', user!.address),
+            _buildDetailItem('Country', user!.country),
+            _buildDetailItem('City', user!.city),
+            _buildDetailItem('Postal Code', user!.postalCode),
+            _buildDetailItem('Occupation', user!.occupation),
+            _buildDetailItem('Admin Status', user!.isAdmin),
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () {
-                // Add functionality to call or message the user
+                _makePhoneCall(user!.phoneNumber);
               },
               child: const Text('Call User'),
             ),
@@ -141,14 +144,14 @@ class UserDetailScreen extends StatelessWidget {
             flex: 2,
             child: Text(
               "$label: ",
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18), // Increased text size
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
             ),
           ),
           Expanded(
             flex: 3,
             child: Text(
               value,
-              style: const TextStyle(fontSize: 18), // Increased text size
+              style: const TextStyle(fontSize: 18),
             ),
           ),
         ],
